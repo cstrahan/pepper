@@ -2,6 +2,7 @@
 A CLI interface to a remote salt-api instance
 
 """
+
 import getpass
 import json
 import logging
@@ -70,7 +71,9 @@ class PepperCli:
         self.parser.add_option(
             "-c",
             dest="config",
-            default=os.environ.get("PEPPERRC", os.path.join(os.path.expanduser("~"), ".pepperrc")),
+            default=os.environ.get(
+                "PEPPERRC", os.path.join(os.path.expanduser("~"), ".pepperrc")
+            ),
             help=textwrap.dedent(
                 """
                 Configuration file location. Default is a file path in the
@@ -437,6 +440,16 @@ class PepperCli:
         )
 
         optgroup.add_option(
+            "--token",
+            dest="token",
+            help=textwrap.dedent(
+                """
+                Token to use.
+            """
+            ),
+        )
+
+        optgroup.add_option(
             "-r",
             "--run-uri",
             default=False,
@@ -472,7 +485,9 @@ class PepperCli:
         ret code validation options
         """
         optgroup = optparse.OptionGroup(
-            self.parser, "retcode Field Validation Options", "Validate return.HOST.retcode fields"
+            self.parser,
+            "retcode Field Validation Options",
+            "Validate return.HOST.retcode fields",
         )
 
         optgroup.add_option(
@@ -632,7 +647,9 @@ class PepperCli:
                     except JSONDecodeError:
                         raise PepperArgumentsException("Invalid JSON given.")
             except FileNotFoundError:
-                raise PepperArgumentsException("Cannot open file: %s", self.options.json_file)
+                raise PepperArgumentsException(
+                    "Cannot open file: %s", self.options.json_file
+                )
 
         args = list(self.args)
 
@@ -765,7 +782,11 @@ class PepperCli:
                     raise Exception("Login token expired")
             except Exception as e:
                 if e.args[0] != 2:
-                    logger.error("Unable to load login token from {} {}".format(token_file, str(e)))
+                    logger.error(
+                        "Unable to load login token from {} {}".format(
+                            token_file, str(e)
+                        )
+                    )
                     if os.path.isfile(token_file):
                         os.remove(token_file)
                 auth = login(**self.parse_login())
@@ -775,7 +796,9 @@ class PepperCli:
                     with os.fdopen(fdsc, "wt") as f:
                         json.dump(auth, f)
                 except Exception as e:
-                    logger.error("Unable to save token to {} {}".format(token_file, str(e)))
+                    logger.error(
+                        "Unable to save token to {} {}".format(token_file, str(e))
+                    )
                 finally:
                     os.umask(oldumask)
         else:

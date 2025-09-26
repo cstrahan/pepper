@@ -4,41 +4,19 @@ A Python library for working with Salt's REST API
 (Specifically the rest_cherrypy netapi module.)
 
 """
+
 import json
 import logging
+import os
 import re
-import ssl
 
+import requests
 from pepper.exceptions import PepperException
 
 try:
-    ssl._create_default_https_context = ssl._create_stdlib_context
-except Exception:
-    pass
-
-try:
-    from urllib.request import (
-        HTTPHandler,
-        HTTPSHandler,
-        Request,
-        urlopen,
-        install_opener,
-        build_opener,
-    )
-    from urllib.error import HTTPError, URLError
-    import urllib.parse as urlparse
+    from urllib.parse import urlparse, urljoin, urlsplit
 except ImportError:
-    from urllib2 import (
-        HTTPHandler,
-        HTTPSHandler,
-        Request,
-        urlopen,
-        install_opener,
-        build_opener,
-        HTTPError,
-        URLError,
-    )
-    import urlparse
+    from urlparse import urlparse, urljoin, urlsplit
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +50,12 @@ class Pepper:
 
     """
 
-    def __init__(self, api_url="https://localhost:8000", debug_http=False, ignore_ssl_errors=False):
+    def __init__(
+        self,
+        api_url="https://localhost:8000",
+        debug_http=False,
+        ignore_ssl_errors=False,
+    ):
         """
         Initialize the class with the URL of the API
 
@@ -86,9 +69,11 @@ class Pepper:
         :raises PepperException: if the api_url is misformed
 
         """
-        split = urlparse.urlsplit(api_url)
+        split = urlsplit(api_url)
         if split.scheme not in ["http", "https"]:
-            raise PepperException("salt-api URL missing HTTP(s) protocol: {}".format(api_url))
+            raise PepperException(
+                "salt-api URL missing HTTP(s) protocol: {}".format(api_url)
+            )
 
         self.api_url = api_url
         self.debug_http = int(debug_http)
@@ -111,8 +96,6 @@ class Pepper:
 
         :rtype: requests.Response
         """
-        import requests
-
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/json",
@@ -123,12 +106,19 @@ class Pepper:
         else:
             raise PepperException("Authentication required")
             return
+
+        # Get proxy settings from environment
+        # proxies = self._get_proxies()
+
         params = {
             "url": self._construct_url(path),
             "headers": headers,
             "verify": self._ssl_verify is True,
             "stream": True,
         }
+        # if proxies:
+        #     params["proxies"] = proxies
+
         try:
             resp = requests.get(**params)
 
@@ -141,7 +131,9 @@ class Pepper:
                 return
 
             if resp.status_code == 404:
-                raise PepperException(str(resp.status_code) + " :This request returns nothing.")
+                raise PepperException(
+                    str(resp.status_code) + " :This request returns nothing."
+                )
                 return
         except PepperException as e:
             print(e)
@@ -155,8 +147,6 @@ class Pepper:
         print(api.login('salt','salt','pam'))
         print(api.req_get('/keys'))
         """
-        import requests
-
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/json",
@@ -167,11 +157,18 @@ class Pepper:
         else:
             raise PepperException("Authentication required")
             return
+
+        # Get proxy settings from environment
+        # proxies = self._get_proxies()
+
         params = {
             "url": self._construct_url(path),
             "headers": headers,
             "verify": self._ssl_verify is True,
         }
+        # if proxies:
+        #     params["proxies"] = proxies
+
         try:
             resp = requests.get(**params)
 
@@ -184,7 +181,9 @@ class Pepper:
                 return
 
             if resp.status_code == 404:
-                raise PepperException(str(resp.status_code) + " :This request returns nothing.")
+                raise PepperException(
+                    str(resp.status_code) + " :This request returns nothing."
+                )
                 return
         except PepperException as e:
             print(e)
@@ -193,7 +192,7 @@ class Pepper:
 
     def req(self, path, data=None):
         """
-        A thin wrapper around urllib2 to send requests and return the response
+        A thin wrapper around requests to send requests and return the response
 
         If the current instance contains an authentication token it will be
         attached to the request as a custom header.
@@ -212,65 +211,68 @@ class Pepper:
             "X-Requested-With": "XMLHttpRequest",
         }
 
-        opener = build_opener()
-        for handler in opener.handlers:
-            if isinstance(handler, HTTPHandler):
-                handler.set_http_debuglevel(self.debug_http)
-            if isinstance(handler, HTTPSHandler):
-                handler.set_http_debuglevel(self.debug_http)
-        install_opener(opener)
-
-        # Build POST data
-        if data is not None:
-            postdata = json.dumps(data).encode()
-            clen = len(postdata)
-        else:
-            postdata = None
-
-        # Create request object
-        url = self._construct_url(path)
-        req = Request(url, postdata, headers)
-
-        # Add POST data to request
-        if data is not None:
-            req.add_header("Content-Length", clen)
-
         # Add auth header to request
         if path != "/run" and self.auth and "token" in self.auth and self.auth["token"]:
-            req.add_header("X-Auth-Token", self.auth["token"])
+            headers["X-Auth-Token"] = self.auth["token"]
 
-        # Send request
+        # Get proxy settings from environment
+        # proxies = self._get_proxies()
+
+        # Build request parameters
+        url = self._construct_url(path)
+        params = {
+            "url": url,
+            "headers": headers,
+            "verify": self._ssl_verify,
+        }
+        # if proxies:
+        #     params["proxies"] = proxies
+
+        # Configure debugging
+        if self.debug_http:
+            import logging
+            import http.client as http_client
+
+            http_client.HTTPConnection.debuglevel = 1
+            logging.basicConfig()
+            logging.getLogger().setLevel(logging.DEBUG)
+            requests_log = logging.getLogger("requests.packages.urllib3")
+            requests_log.setLevel(logging.DEBUG)
+            requests_log.propagate = True
+
         try:
-            if not (self._ssl_verify):
-                con = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
-                f = urlopen(req, context=con)
+            if data is not None:
+                params["data"] = json.dumps(data)
+                resp = requests.post(**params)
             else:
-                f = urlopen(req)
-            content = f.read().decode("utf-8")
+                resp = requests.get(**params)
+
             if self.debug_http:
-                logger.debug("Response: %s", content)
-            ret = json.loads(content)
+                logger.debug("Response: %s", resp.text)
 
-            if not self.salt_version and "x-salt-version" in f.headers:
-                self._parse_salt_version(f.headers["x-salt-version"])
+            # Check for salt version header
+            if not self.salt_version and "x-salt-version" in resp.headers:
+                self._parse_salt_version(resp.headers["x-salt-version"])
 
-        except (HTTPError, URLError) as exc:
-            logger.debug("Error with request", exc_info=True)
-            status = getattr(exc, "code", None)
-
-            if status == 401:
+            # Handle error status codes
+            if resp.status_code == 401:
                 raise PepperException("Authentication denied")
-
-            if status == 500:
+            elif resp.status_code == 500:
                 raise PepperException("Server error.")
+            elif resp.status_code >= 400:
+                raise PepperException(
+                    "HTTP error {}: {}".format(resp.status_code, resp.text)
+                )
 
+            return resp.json()
+
+        except requests.exceptions.RequestException as exc:
+            logger.debug("Error with request", exc_info=True)
             logger.error("Error with request: {}".format(exc))
-            raise
-        except AttributeError:
+            raise PepperException("Request failed: {}".format(exc))
+        except ValueError:
             logger.debug("Error converting response from JSON", exc_info=True)
             raise PepperException("Unable to parse the server response.")
-
-        return ret
 
     def req_requests(self, path, data=None):
         """
@@ -283,7 +285,6 @@ class Pepper:
         :rtype: dictionary
 
         """
-        import requests
         from requests_gssapi import HTTPSPNEGOAuth, OPTIONAL
 
         auth = HTTPSPNEGOAuth(mutual_authentication=OPTIONAL)
@@ -294,7 +295,11 @@ class Pepper:
         }
         if self.auth and "token" in self.auth and self.auth["token"]:
             headers.setdefault("X-Auth-Token", self.auth["token"])
-        # Optionally toggle SSL verification
+
+        # # Get proxy settings from environment
+        # proxies = self._get_proxies()
+
+        # # Optionally toggle SSL verification
         params = {
             "url": self._construct_url(path),
             "headers": headers,
@@ -302,6 +307,9 @@ class Pepper:
             "auth": auth,
             "data": json.dumps(data),
         }
+        # if proxies:
+        #     params["proxies"] = proxies
+
         logger.debug("postdata {}".format(params))
         resp = requests.post(**params)
         if resp.status_code == 401:
@@ -326,7 +334,9 @@ class Pepper:
         """
         return self.req(path, lowstate)
 
-    def local(self, tgt, fun, arg=None, kwarg=None, expr_form="glob", timeout=None, ret=None):
+    def local(
+        self, tgt, fun, arg=None, kwarg=None, expr_form="glob", timeout=None, ret=None
+    ):
         """
         Run a single command using the ``local`` client
 
@@ -355,7 +365,9 @@ class Pepper:
 
         return self.low([low])
 
-    def local_async(self, tgt, fun, arg=None, kwarg=None, expr_form="glob", timeout=None, ret=None):
+    def local_async(
+        self, tgt, fun, arg=None, kwarg=None, expr_form="glob", timeout=None, ret=None
+    ):
         """
         Run a single command using the ``local_async`` client
 
@@ -384,7 +396,9 @@ class Pepper:
 
         return self.low([low])
 
-    def local_batch(self, tgt, fun, arg=None, kwarg=None, expr_form="glob", batch="50%", ret=None):
+    def local_batch(
+        self, tgt, fun, arg=None, kwarg=None, expr_form="glob", batch="50%", ret=None
+    ):
         """
         Run a single command using the ``local_batch`` client
 
@@ -502,7 +516,62 @@ class Pepper:
         """
 
         relative_path = path.lstrip("/")
-        return urlparse.urljoin(self.api_url, relative_path)
+        return urljoin(self.api_url, relative_path)
+
+    def _get_proxies(self):
+        """
+        Get proxy configuration from environment variables.
+        Supports HTTP_PROXY, HTTPS_PROXY, NO_PROXY, and their lowercase variants.
+        Also supports SOCKS proxies via ALL_PROXY.
+
+        Returns a dict suitable for requests library proxies parameter.
+        """
+        proxies = {}
+
+        # Check for proxy environment variables
+        http_proxy = os.environ.get("http_proxy") or os.environ.get("HTTP_PROXY")
+        https_proxy = os.environ.get("https_proxy") or os.environ.get("HTTPS_PROXY")
+        all_proxy = os.environ.get("all_proxy") or os.environ.get("ALL_PROXY")
+        no_proxy = os.environ.get("no_proxy") or os.environ.get("NO_PROXY")
+
+        # Check if we should bypass proxy for this URL
+        if no_proxy:
+            parsed_url = urlparse(self.api_url)
+            host = parsed_url.hostname
+            if host:
+                for no_proxy_host in no_proxy.split(","):
+                    no_proxy_host = no_proxy_host.strip()
+                    if host == no_proxy_host or host.endswith("." + no_proxy_host):
+                        return {}  # No proxy for this host
+
+        # Helper function to convert proxy URLs to proper format
+        def normalize_proxy_url(proxy_url):
+            if not proxy_url:
+                return proxy_url
+
+            # If it looks like a SOCKS proxy without protocol, add socks5://
+            if proxy_url.startswith("localhost:") or proxy_url.startswith("127.0.0.1:"):
+                # Assume SOCKS5 for localhost without protocol
+                return f"socks5://{proxy_url}"
+            elif ":" in proxy_url and not proxy_url.startswith(
+                ("http://", "https://", "socks4://", "socks5://")
+            ):
+                # Has port but no protocol - assume http
+                return f"http://{proxy_url}"
+            return proxy_url
+
+        # Set up proxies dict for requests
+        if all_proxy:  # ALL_PROXY takes precedence (often used for SOCKS)
+            normalized_proxy = normalize_proxy_url(all_proxy)
+            proxies["http"] = normalized_proxy
+            proxies["https"] = normalized_proxy
+        else:
+            if http_proxy:
+                proxies["http"] = normalize_proxy_url(http_proxy)
+            if https_proxy:
+                proxies["https"] = normalize_proxy_url(https_proxy)
+
+        return proxies
 
     def _parse_salt_version(self, version):
         # borrow from salt.version

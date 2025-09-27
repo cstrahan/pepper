@@ -20,5 +20,5 @@ except PackageNotFoundError:
     __version__ = None
 
 # For backwards compatibility
-version: Optional[str] = __version__  # type: ignore[no-redef]
+version: Optional[str] = __version__
 sha: Optional[str] = None

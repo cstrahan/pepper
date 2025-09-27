@@ -9,6 +9,7 @@ import json
 import logging
 import re
 import ssl
+import sys
 from typing import Optional, Dict, List, Any, Union, Tuple, TYPE_CHECKING
 
 from pepper.exceptions import PepperException
@@ -18,7 +19,9 @@ try:
 except Exception:
     pass
 
-try:
+
+# if importlib.util.find_spec("urllib"):
+if sys.version_info >= (3, 0):
     from urllib.request import (
         HTTPHandler,
         HTTPSHandler,
@@ -29,8 +32,8 @@ try:
     )
     from urllib.error import HTTPError, URLError
     import urllib.parse as urlparse
-except ImportError:
-    from urllib2 import (  # type: ignore
+else:
+    from urllib2 import (
         HTTPHandler,
         HTTPSHandler,
         Request,
@@ -40,7 +43,7 @@ except ImportError:
         HTTPError,
         URLError,
     )
-    import urlparse  # type: ignore
+    import urlparse
 
 logger = logging.getLogger(__name__)
 

@@ -54,6 +54,7 @@ class Pepper:
         self,
         api_url="https://localhost:8000",
         ignore_ssl_errors=False,
+        proxies=None,
     ):
         """
         Initialize the class with the URL of the API
@@ -62,6 +63,8 @@ class Pepper:
             include the port number
 
         :param ignore_ssl_errors: Add a flag to urllib2 to ignore invalid SSL certificates
+
+        :param proxies: Dictionary of proxy URLs to use for requests (e.g. {'http': 'socks5://localhost:1080', 'https': 'socks5://localhost:1080'})
 
         :raises PepperException: if the api_url is misformed
 
@@ -76,6 +79,7 @@ class Pepper:
         self._ssl_verify = not ignore_ssl_errors
         self.auth = {}
         self.salt_version = None
+        self.proxies = proxies or {}
 
     def req_stream(self, path):
         """
@@ -104,16 +108,14 @@ class Pepper:
             return
 
         # Get proxy settings from environment
-        # proxies = self._get_proxies()
-
         params = {
             "url": self._construct_url(path),
             "headers": headers,
             "verify": self._ssl_verify is True,
             "stream": True,
         }
-        # if proxies:
-        #     params["proxies"] = proxies
+        if self.proxies:
+            params["proxies"] = self.proxies
 
         try:
             resp = requests.get(**params)
@@ -155,15 +157,13 @@ class Pepper:
             return
 
         # Get proxy settings from environment
-        # proxies = self._get_proxies()
-
         params = {
             "url": self._construct_url(path),
             "headers": headers,
             "verify": self._ssl_verify is True,
         }
-        # if proxies:
-        #     params["proxies"] = proxies
+        if self.proxies:
+            params["proxies"] = self.proxies
 
         try:
             resp = requests.get(**params)
@@ -211,9 +211,6 @@ class Pepper:
         if path != "/run" and self.auth and "token" in self.auth and self.auth["token"]:
             headers["X-Auth-Token"] = self.auth["token"]
 
-        # Get proxy settings from environment
-        # proxies = self._get_proxies()
-
         # Build request parameters
         url = self._construct_url(path)
         params = {
@@ -221,8 +218,8 @@ class Pepper:
             "headers": headers,
             "verify": self._ssl_verify,
         }
-        # if proxies:
-        #     params["proxies"] = proxies
+        if self.proxies:
+            params["proxies"] = self.proxies
 
         try:
             if data is not None:
@@ -277,10 +274,7 @@ class Pepper:
         if self.auth and "token" in self.auth and self.auth["token"]:
             headers.setdefault("X-Auth-Token", self.auth["token"])
 
-        # # Get proxy settings from environment
-        # proxies = self._get_proxies()
-
-        # # Optionally toggle SSL verification
+        # Optionally toggle SSL verification
         params = {
             "url": self._construct_url(path),
             "headers": headers,
@@ -288,8 +282,8 @@ class Pepper:
             "auth": auth,
             "data": json.dumps(data),
         }
-        # if proxies:
-        #     params["proxies"] = proxies
+        if self.proxies:
+            params["proxies"] = self.proxies
 
         logger.debug("postdata {}".format(params))
         resp = requests.post(**params)
@@ -498,61 +492,6 @@ class Pepper:
 
         relative_path = path.lstrip("/")
         return urljoin(self.api_url, relative_path)
-
-    def _get_proxies(self):
-        """
-        Get proxy configuration from environment variables.
-        Supports HTTP_PROXY, HTTPS_PROXY, NO_PROXY, and their lowercase variants.
-        Also supports SOCKS proxies via ALL_PROXY.
-
-        Returns a dict suitable for requests library proxies parameter.
-        """
-        proxies = {}
-
-        # Check for proxy environment variables
-        http_proxy = os.environ.get("http_proxy") or os.environ.get("HTTP_PROXY")
-        https_proxy = os.environ.get("https_proxy") or os.environ.get("HTTPS_PROXY")
-        all_proxy = os.environ.get("all_proxy") or os.environ.get("ALL_PROXY")
-        no_proxy = os.environ.get("no_proxy") or os.environ.get("NO_PROXY")
-
-        # Check if we should bypass proxy for this URL
-        if no_proxy:
-            parsed_url = urlparse(self.api_url)
-            host = parsed_url.hostname
-            if host:
-                for no_proxy_host in no_proxy.split(","):
-                    no_proxy_host = no_proxy_host.strip()
-                    if host == no_proxy_host or host.endswith("." + no_proxy_host):
-                        return {}  # No proxy for this host
-
-        # Helper function to convert proxy URLs to proper format
-        def normalize_proxy_url(proxy_url):
-            if not proxy_url:
-                return proxy_url
-
-            # If it looks like a SOCKS proxy without protocol, add socks5://
-            if proxy_url.startswith("localhost:") or proxy_url.startswith("127.0.0.1:"):
-                # Assume SOCKS5 for localhost without protocol
-                return f"socks5://{proxy_url}"
-            elif ":" in proxy_url and not proxy_url.startswith(
-                ("http://", "https://", "socks4://", "socks5://")
-            ):
-                # Has port but no protocol - assume http
-                return f"http://{proxy_url}"
-            return proxy_url
-
-        # Set up proxies dict for requests
-        if all_proxy:  # ALL_PROXY takes precedence (often used for SOCKS)
-            normalized_proxy = normalize_proxy_url(all_proxy)
-            proxies["http"] = normalized_proxy
-            proxies["https"] = normalized_proxy
-        else:
-            if http_proxy:
-                proxies["http"] = normalize_proxy_url(http_proxy)
-            if https_proxy:
-                proxies["https"] = normalize_proxy_url(https_proxy)
-
-        return proxies
 
     def _parse_salt_version(self, version):
         # borrow from salt.version

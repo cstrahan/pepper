@@ -19,6 +19,10 @@ from pepper.exceptions import PepperException
 
 # Import Pepper Libraries
 
+try:
+    from urllib.parse import urlparse, urljoin, urlsplit
+except ImportError:
+    from urlparse import urlparse, urljoin, urlsplit
 
 try:
     # Python 3
@@ -166,6 +170,19 @@ class PepperCli:
                 """
                 Ignore any SSL certificate that may be encountered. Note that it is
                 recommended to resolve certificate errors for production.
+            """
+            ),
+        )
+
+        self.parser.add_option(
+            "--proxy",
+            dest="proxy",
+            default=None,
+            help=textwrap.dedent(
+                """
+                Specify a proxy URL to use for all requests. Supports http, https, and socks5 protocols.
+                Example: --proxy socks5://localhost:1080 or --proxy http://proxy.example.com:8080
+                This overrides any proxy environment variables (HTTP_PROXY, HTTPS_PROXY, etc).
             """
             ),
         )
@@ -535,6 +552,7 @@ class PepperCli:
             "SALTAPI_PASS": None,
             "SALTAPI_EAUTH": "auto",
             "SALTAPI_RUN_URI_TOKEN": None,
+            "SALTAPI_PROXY": None,
         }
 
         try:
@@ -592,6 +610,67 @@ class PepperCli:
                 results["SALTAPI_PASS"] = self.options.password
 
         return results
+
+    def get_proxies(self):
+        """
+        Get proxy configuration from command line, environment variables, or config file.
+        Precedence order (highest to lowest):
+        1. Command line --proxy option
+        2. Environment variables: SALTAPI_PROXY
+        3. Config file setting: SALTAPI_PROXY
+        4. Environment variables: HTTP_PROXY, HTTPS_PROXY, ALL_PROXY
+
+        Returns a dict suitable for requests library proxies parameter.
+        """
+        api_url = self.parse_url()
+        api_url_scheme = urlparse(api_url).scheme
+        proxy = None
+
+        if self.options.proxy:
+            proxy = self.options.proxy
+
+        if not proxy:
+            saltapi_proxy = os.environ.get("SALTAPI_PROXY")
+            if saltapi_proxy:
+                proxy = saltapi_proxy
+
+        if not proxy:
+            try:
+                config = ConfigParser(interpolation=None)
+            except TypeError:
+                config = RawConfigParser()
+            config.read(self.options.config)
+
+            profile = self.options.profile
+            if config.has_section(profile):
+                if config.has_option(profile, "SALTAPI_PROXY"):
+                    config_proxy = config.get(profile, "SALTAPI_PROXY")
+                    if config_proxy:
+                        proxy = config_proxy
+
+        if not proxy:
+            http_proxy = os.environ.get("http_proxy") or os.environ.get("HTTP_PROXY")
+            https_proxy = os.environ.get("https_proxy") or os.environ.get("HTTPS_PROXY")
+            all_proxy = os.environ.get("all_proxy") or os.environ.get("ALL_PROXY")
+            no_proxy = os.environ.get("no_proxy") or os.environ.get("NO_PROXY")
+
+            if all_proxy:
+                proxy = all_proxy
+            elif http_proxy and api_url_scheme == "http":
+                proxy = http_proxy
+            elif https_proxy and api_url_scheme == "https":
+                proxy = https_proxy
+
+            if no_proxy:
+                parsed_url = urlparse(api_url)
+                host = parsed_url.hostname
+                if host:
+                    for no_proxy_host in no_proxy.split(","):
+                        no_proxy_host = no_proxy_host.strip()
+                        if host == no_proxy_host or host.endswith("." + no_proxy_host):
+                            proxy = None
+
+        return {api_url_scheme: proxy}
 
     def parse_url(self):
         """
@@ -861,6 +940,7 @@ class PepperCli:
         api = pepper.Pepper(
             self.parse_url(),
             ignore_ssl_errors=self.options.ignore_ssl_certificate_errors,
+            proxies=self.get_proxies(),
         )
 
         self.login(api)

@@ -2,6 +2,8 @@
 A retcode validator
 
 """
+from typing import Any, Dict, List, Union
+import optparse
 
 
 class PepperRetcode:
@@ -9,7 +11,7 @@ class PepperRetcode:
     Validation container
     """
 
-    def validate(self, options, result):
+    def validate(self, options: optparse.Values, result: Union[List[Any], Dict[str, Any], str]) -> int:
         """
         Validate result dictionary retcode values.
 
@@ -30,7 +32,7 @@ class PepperRetcode:
         return 0
 
     @staticmethod
-    def validate_fail_any(result):
+    def validate_fail_any(result: Union[List[Any], Dict[str, Any], str]) -> int:
         """
         Validate result dictionary retcode values.
         Returns 0 if no retcode keys.
@@ -52,7 +54,7 @@ class PepperRetcode:
         return 0
 
     @staticmethod
-    def validate_fail_any_none(result):
+    def validate_fail_any_none(result: Union[List[Any], Dict[str, Any], str]) -> int:
         """
         Validate result dictionary retcode values.
         Returns -1 if no retcode keys.
@@ -76,7 +78,7 @@ class PepperRetcode:
         return -1
 
     @staticmethod
-    def validate_fail_all(result):
+    def validate_fail_all(result: Union[List[Any], Dict[str, Any], str]) -> int:
         """
         Validate result dictionary retcode values.
         Returns 0 if no retcode keys.
@@ -99,7 +101,7 @@ class PepperRetcode:
         return 0
 
     @staticmethod
-    def validate_fail_all_none(result):
+    def validate_fail_all_none(result: Union[List[Any], Dict[str, Any], str]) -> int:
         """
         Validate result dictionary retcode values.
         Returns -1 if no retcode keys.

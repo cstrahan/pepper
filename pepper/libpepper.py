@@ -8,11 +8,12 @@ import json
 import logging
 import re
 import ssl
+from typing import Optional, Dict, List, Any, Union, Tuple
 
 from pepper.exceptions import PepperException
 
 try:
-    ssl._create_default_https_context = ssl._create_stdlib_context
+    ssl._create_default_https_context = ssl._create_stdlib_context  # type: ignore
 except Exception:
     pass
 
@@ -28,17 +29,17 @@ try:
     from urllib.error import HTTPError, URLError
     import urllib.parse as urlparse
 except ImportError:
-    from urllib2 import (
-        HTTPHandler,
-        HTTPSHandler,
-        Request,
-        urlopen,
-        install_opener,
-        build_opener,
-        HTTPError,
-        URLError,
+    from urllib2 import (  # type: ignore
+        HTTPHandler,  # type: ignore
+        HTTPSHandler,  # type: ignore
+        Request,  # type: ignore
+        urlopen,  # type: ignore
+        install_opener,  # type: ignore
+        build_opener,  # type: ignore
+        HTTPError,  # type: ignore
+        URLError,  # type: ignore
     )
-    import urlparse
+    import urlparse  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +73,7 @@ class Pepper:
 
     """
 
-    def __init__(self, api_url="https://localhost:8000", debug_http=False, ignore_ssl_errors=False):
+    def __init__(self, api_url: str = "https://localhost:8000", debug_http: bool = False, ignore_ssl_errors: bool = False) -> None:
         """
         Initialize the class with the URL of the API
 
@@ -93,10 +94,10 @@ class Pepper:
         self.api_url = api_url
         self.debug_http = int(debug_http)
         self._ssl_verify = not ignore_ssl_errors
-        self.auth = {}
-        self.salt_version = None
+        self.auth: Dict[str, Any] = {}
+        self.salt_version: Optional[Tuple[str, ...]] = None
 
-    def req_stream(self, path):
+    def req_stream(self, path: str) -> Optional[Any]:
         """
         A thin wrapper to get a response from saltstack api.
         The body of the response will not be downloaded immediately.
@@ -122,7 +123,6 @@ class Pepper:
             headers.setdefault("X-Auth-Token", self.auth["token"])
         else:
             raise PepperException("Authentication required")
-            return
         params = {
             "url": self._construct_url(path),
             "headers": headers,
@@ -130,25 +130,22 @@ class Pepper:
             "stream": True,
         }
         try:
-            resp = requests.get(**params)
+            resp = requests.get(**params)  # type: ignore
 
             if resp.status_code == 401:
                 raise PepperException(str(resp.status_code) + ":Authentication denied")
-                return
 
             if resp.status_code == 500:
                 raise PepperException(str(resp.status_code) + ":Server error.")
-                return
 
             if resp.status_code == 404:
                 raise PepperException(str(resp.status_code) + " :This request returns nothing.")
-                return
         except PepperException as e:
             print(e)
-            return
+            return None
         return resp
 
-    def req_get(self, path):
+    def req_get(self, path: str) -> Optional[Dict[str, Any]]:
         """
         A thin wrapper from get http method of saltstack api
         api = Pepper('http://ipaddress/api/')
@@ -166,32 +163,28 @@ class Pepper:
             headers.setdefault("X-Auth-Token", self.auth["token"])
         else:
             raise PepperException("Authentication required")
-            return
         params = {
             "url": self._construct_url(path),
             "headers": headers,
             "verify": self._ssl_verify is True,
         }
         try:
-            resp = requests.get(**params)
+            resp = requests.get(**params)  # type: ignore
 
             if resp.status_code == 401:
                 raise PepperException(str(resp.status_code) + ":Authentication denied")
-                return
 
             if resp.status_code == 500:
                 raise PepperException(str(resp.status_code) + ":Server error.")
-                return
 
             if resp.status_code == 404:
                 raise PepperException(str(resp.status_code) + " :This request returns nothing.")
-                return
         except PepperException as e:
             print(e)
-            return
+            return None
         return resp.json()
 
-    def req(self, path, data=None):
+    def req(self, path: str, data: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None) -> Dict[str, Any]:
         """
         A thin wrapper around urllib2 to send requests and return the response
 
@@ -201,7 +194,7 @@ class Pepper:
         :rtype: dictionary
 
         """
-        if (hasattr(data, "get") and data.get("eauth") == "kerberos") or self.auth.get(
+        if (isinstance(data, dict) and data.get("eauth") == "kerberos") or self.auth.get(
             "eauth"
         ) == "kerberos":
             return self.req_requests(path, data)
@@ -213,7 +206,7 @@ class Pepper:
         }
 
         opener = build_opener()
-        for handler in opener.handlers:
+        for handler in opener.handlers:  # type: ignore
             if isinstance(handler, HTTPHandler):
                 handler.set_http_debuglevel(self.debug_http)
             if isinstance(handler, HTTPSHandler):
@@ -233,7 +226,7 @@ class Pepper:
 
         # Add POST data to request
         if data is not None:
-            req.add_header("Content-Length", clen)
+            req.add_header("Content-Length", str(clen))
 
         # Add auth header to request
         if path != "/run" and self.auth and "token" in self.auth and self.auth["token"]:
@@ -272,7 +265,7 @@ class Pepper:
 
         return ret
 
-    def req_requests(self, path, data=None):
+    def req_requests(self, path: str, data: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None) -> Dict[str, Any]:
         """
         A thin wrapper around request and request_kerberos to send
         requests and return the response
@@ -303,7 +296,7 @@ class Pepper:
             "data": json.dumps(data),
         }
         logger.debug("postdata {}".format(params))
-        resp = requests.post(**params)
+        resp = requests.post(**params)  # type: ignore
         if resp.status_code == 401:
             # TODO should be resp.raise_from_status
             raise PepperException("Authentication denied")
@@ -316,7 +309,7 @@ class Pepper:
 
         return resp.json()
 
-    def low(self, lowstate, path="/"):
+    def low(self, lowstate: List[Dict[str, Any]], path: str = "/") -> Dict[str, Any]:
         """
         Execute a command through salt-api and return the response
 
@@ -326,13 +319,13 @@ class Pepper:
         """
         return self.req(path, lowstate)
 
-    def local(self, tgt, fun, arg=None, kwarg=None, expr_form="glob", timeout=None, ret=None):
+    def local(self, tgt: str, fun: str, arg: Optional[List[Any]] = None, kwarg: Optional[Dict[str, Any]] = None, expr_form: str = "glob", timeout: Optional[int] = None, ret: Optional[str] = None) -> Dict[str, Any]:
         """
         Run a single command using the ``local`` client
 
         Wraps :meth:`low`.
         """
-        low = {
+        low: Dict[str, Any] = {
             "client": "local",
             "tgt": tgt,
             "fun": fun,
@@ -355,13 +348,13 @@ class Pepper:
 
         return self.low([low])
 
-    def local_async(self, tgt, fun, arg=None, kwarg=None, expr_form="glob", timeout=None, ret=None):
+    def local_async(self, tgt: str, fun: str, arg: Optional[List[Any]] = None, kwarg: Optional[Dict[str, Any]] = None, expr_form: str = "glob", timeout: Optional[int] = None, ret: Optional[str] = None) -> Dict[str, Any]:
         """
         Run a single command using the ``local_async`` client
 
         Wraps :meth:`low`.
         """
-        low = {
+        low: Dict[str, Any] = {
             "client": "local_async",
             "tgt": tgt,
             "fun": fun,
@@ -384,13 +377,13 @@ class Pepper:
 
         return self.low([low])
 
-    def local_batch(self, tgt, fun, arg=None, kwarg=None, expr_form="glob", batch="50%", ret=None):
+    def local_batch(self, tgt: str, fun: str, arg: Optional[List[Any]] = None, kwarg: Optional[Dict[str, Any]] = None, expr_form: str = "glob", batch: str = "50%", ret: Optional[str] = None) -> Dict[str, Any]:
         """
         Run a single command using the ``local_batch`` client
 
         Wraps :meth:`low`.
         """
-        low = {
+        low: Dict[str, Any] = {
             "client": "local_batch",
             "tgt": tgt,
             "fun": fun,
@@ -413,7 +406,7 @@ class Pepper:
 
         return self.low([low])
 
-    def lookup_jid(self, jid):
+    def lookup_jid(self, jid: Union[str, int]) -> Dict[str, Any]:
         """
         Get job results
 
@@ -422,14 +415,14 @@ class Pepper:
 
         return self.runner("jobs.lookup_jid", jid="{}".format(jid))
 
-    def runner(self, fun, arg=None, **kwargs):
+    def runner(self, fun: str, arg: Optional[List[Any]] = None, **kwargs: Any) -> Dict[str, Any]:
         """
         Run a single command using the ``runner`` client
 
         Usage::
           runner('jobs.lookup_jid', jid=12345)
         """
-        low = {
+        low: Dict[str, Any] = {
             "client": "runner",
             "fun": fun,
         }
@@ -440,14 +433,14 @@ class Pepper:
 
         return self.low([low])
 
-    def wheel(self, fun, arg=None, kwarg=None, **kwargs):
+    def wheel(self, fun: str, arg: Optional[List[Any]] = None, kwarg: Optional[Dict[str, Any]] = None, **kwargs: Any) -> Dict[str, Any]:
         """
         Run a single command using the ``wheel`` client
 
         Usage::
           wheel('key.accept', match='myminion')
         """
-        low = {
+        low: Dict[str, Any] = {
             "client": "wheel",
             "fun": fun,
         }
@@ -461,10 +454,10 @@ class Pepper:
 
         return self.low([low])
 
-    def _send_auth(self, path, **kwargs):
+    def _send_auth(self, path: str, **kwargs: Any) -> Dict[str, Any]:
         return self.req(path, kwargs)
 
-    def login(self, username=None, password=None, eauth=None, **kwargs):
+    def login(self, username: Optional[str] = None, password: Optional[str] = None, eauth: Optional[str] = None, **kwargs: Any) -> Dict[str, Any]:
         """
         Authenticate with salt-api and return the user permissions and
         authentication token or an empty dict
@@ -481,15 +474,15 @@ class Pepper:
         self.auth = self._send_auth("/login", **kwargs).get("return", [{}])[0]
         return self.auth
 
-    def token(self, **kwargs):
+    def token(self, **kwargs: Any) -> Dict[str, Any]:
         """
         Get an eauth token from Salt for use with the /run URL
 
         """
-        self.auth = self._send_auth("/token", **kwargs)[0]
+        self.auth = self._send_auth("/token", **kwargs)[0]  # type: ignore
         return self.auth
 
-    def _construct_url(self, path):
+    def _construct_url(self, path: str) -> str:
         """
         Construct the url to salt-api for the given path
 
@@ -504,7 +497,7 @@ class Pepper:
         relative_path = path.lstrip("/")
         return urlparse.urljoin(self.api_url, relative_path)
 
-    def _parse_salt_version(self, version):
+    def _parse_salt_version(self, version: str) -> None:
         # borrow from salt.version
         git_describe_regex = re.compile(
             r"(?:[^\d]+)?(?P<major>[\d]{1,4})"

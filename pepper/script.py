@@ -5,6 +5,7 @@ A CLI interface to a remote salt-api instance
 import json
 import logging
 import sys
+from typing import Optional
 
 from pepper.cli import PepperCli
 from pepper.exceptions import PepperArgumentsException
@@ -25,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class Pepper:
-    def __init__(self):
+    def __init__(self) -> None:
         self.cli = PepperCli()
         if HAS_SALT:
             self.opts = salt.config.client_config(self.cli.options.master)
@@ -35,7 +36,7 @@ class Pepper:
             self.opts["output_file"] = self.cli.options.output_file
 
     @property
-    def output(self):
+    def output(self) -> str:
         if not hasattr(self, "modules"):
             self.modules = salt.loader.minion_mods(self.opts)
         try:
@@ -44,7 +45,7 @@ class Pepper:
             oput = "nested"
         return oput
 
-    def __call__(self):
+    def __call__(self) -> Optional[int]:
         try:
             for exit_code, result in self.cli.run():
                 if HAS_SALT and self.opts:
@@ -130,3 +131,4 @@ class Pepper:
             )
             logger.debug("Uncaught traceback:", exc_info=True)
             return 1
+        return None

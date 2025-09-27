@@ -10,6 +10,7 @@ import os
 import sys
 import textwrap
 import time
+from typing import Any, Dict, List, Optional, Tuple, Generator, Union
 
 import pepper
 from pepper.exceptions import PepperArgumentsException
@@ -24,17 +25,17 @@ try:
     from configparser import ConfigParser, RawConfigParser
 except ImportError:
     # Python 2
-    from ConfigParser import ConfigParser, RawConfigParser
+    from ConfigParser import ConfigParser, RawConfigParser  # type: ignore
 
 try:
     # Python 3
-    JSONDecodeError = json.decode.JSONDecodeError
+    JSONDecodeError = json.JSONDecodeError  # type: ignore
 except AttributeError:
     # Python 2
-    JSONDecodeError = ValueError
+    JSONDecodeError = ValueError  # type: ignore[assignment, misc]
 
 try:
-    input = raw_input
+    input = raw_input  # type: ignore
 except NameError:
     pass
 
@@ -45,7 +46,7 @@ logger = logging.getLogger(__name__)
 
 
 class PepperCli:
-    def __init__(self, seconds_to_wait=3):
+    def __init__(self, seconds_to_wait: int = 3) -> None:
         self.seconds_to_wait = seconds_to_wait
         self.parser = self.get_parser()
         self.parser.option_groups.extend(
@@ -58,12 +59,12 @@ class PepperCli:
         )
         self.parse()
 
-    def get_parser(self):
+    def get_parser(self) -> optparse.OptionParser:
         return optparse.OptionParser(
             description=__doc__, usage="%prog [opts]", version=pepper.__version__
         )
 
-    def parse(self):
+    def parse(self) -> None:
         """
         Parse all args
         """
@@ -175,7 +176,7 @@ class PepperCli:
             s = repr(toggled_options).strip("[]")
             self.parser.error("Options %s are mutually exclusive" % s)
 
-    def add_globalopts(self):
+    def add_globalopts(self) -> optparse.OptionGroup:
         """
         Misc global options
         """
@@ -247,7 +248,7 @@ class PepperCli:
 
         return optgroup
 
-    def add_tgtopts(self):
+    def add_tgtopts(self) -> optparse.OptionGroup:
         """
         Targeting
         """
@@ -340,7 +341,7 @@ class PepperCli:
 
         return optgroup
 
-    def add_authopts(self):
+    def add_authopts(self) -> optparse.OptionGroup:
         """
         Authentication options
         """
@@ -467,7 +468,7 @@ class PepperCli:
 
         return optgroup
 
-    def add_retcodeopts(self):
+    def add_retcodeopts(self) -> optparse.OptionGroup:
         """
         ret code validation options
         """
@@ -505,7 +506,7 @@ class PepperCli:
 
         return optgroup
 
-    def get_login_details(self):
+    def get_login_details(self) -> Dict[str, Optional[str]]:
         """
         This parses the config file, environment variables and command line options
         and returns the config values
@@ -521,7 +522,7 @@ class PepperCli:
         }
 
         try:
-            config = ConfigParser(interpolation=None)
+            config: Union[ConfigParser, RawConfigParser] = ConfigParser(interpolation=None)  # type: ignore
         except TypeError:
             config = RawConfigParser()
         config.read(self.options.config)
@@ -567,14 +568,14 @@ class PepperCli:
 
         return results
 
-    def parse_url(self):
+    def parse_url(self) -> str:
         """
         Determine api url
         """
         url = "https://localhost:8000/"
 
         try:
-            config = ConfigParser(interpolation=None)
+            config: Union[ConfigParser, RawConfigParser] = ConfigParser(interpolation=None)  # type: ignore
         except TypeError:
             config = RawConfigParser()
         config.read(self.options.config)
@@ -594,7 +595,7 @@ class PepperCli:
 
         return url
 
-    def parse_login(self):
+    def parse_login(self) -> Dict[str, Any]:
         """
         Extract the authentication credentials
         """
@@ -609,11 +610,11 @@ class PepperCli:
 
         token_expire = login_details.get("SALTAPI_TOKEN_EXPIRE", None)
         if token_expire:
-            ret["token_expire"] = int(token_expire)
+            ret["token_expire"] = int(token_expire)  # type: ignore
 
         return ret
 
-    def parse_cmd(self, api):
+    def parse_cmd(self, api: 'pepper.Pepper') -> List[Dict[str, Any]]:
         """
         Extract the low data for a command from the passed CLI params
         """
@@ -665,7 +666,7 @@ class PepperCli:
                         except JSONDecodeError:
                             low[key] = value
                     else:
-                        low.setdefault("arg", []).append(arg)
+                        low.setdefault("arg", []).append(arg)  # type: ignore
         elif client.startswith("wheel"):
             low["fun"] = args.pop(0)
             # see above comment in runner arg handling
@@ -680,7 +681,7 @@ class PepperCli:
                         except JSONDecodeError:
                             low[key] = value
                     else:
-                        low.setdefault("arg", []).append(arg)
+                        low.setdefault("arg", []).append(arg)  # type: ignore
         elif client.startswith("ssh"):
             if len(args) < 2:
                 self.parser.error("Command or target not specified")
@@ -695,7 +696,7 @@ class PepperCli:
 
         return [low]
 
-    def poll_for_returns(self, api, load):
+    def poll_for_returns(self, api: 'pepper.Pepper', load: List[Dict[str, Any]]) -> Generator[Tuple[Optional[int], List[Dict[str, Any]]], None, None]:
         """
         Run a command with the local_async client and periodically poll the job
         cache for returns for the job.
@@ -704,11 +705,11 @@ class PepperCli:
         async_ret = self.low(api, load)
         jid = async_ret["return"][0]["jid"]
         nodes = async_ret["return"][0]["minions"]
-        ret_nodes = []
+        ret_nodes: List[str] = []
         exit_code = 1
 
         # keep trying until all expected nodes return
-        total_time = 0
+        total_time: float = 0
         start_time = time.time()
         exit_code = 0
         while True:
@@ -752,7 +753,7 @@ class PepperCli:
         if failed:
             yield exit_code, [{"Failed": failed}]
 
-    def login(self, api):
+    def login(self, api: 'pepper.Pepper') -> Dict[str, Any]:
         login = api.token if self.options.userun else api.login
 
         if self.options.mktoken:
@@ -785,7 +786,7 @@ class PepperCli:
         self.auth = auth
         return auth
 
-    def low(self, api, load):
+    def low(self, api: 'pepper.Pepper', load: List[Dict[str, Any]]) -> Dict[str, Any]:
         path = "/run" if self.options.userun else "/"
 
         if self.options.userun:
@@ -801,7 +802,7 @@ class PepperCli:
 
         return api.low(load, path=path)
 
-    def run(self):
+    def run(self) -> Generator[Tuple[Optional[int], str], None, None]:
         """
         Parse all arguments and call salt-api
         """
@@ -828,6 +829,6 @@ class PepperCli:
             for exit_code, ret in self.poll_for_returns(api, load):  # pragma: no cover
                 yield exit_code, json.dumps(ret, sort_keys=True, indent=4)
         else:
-            ret = self.low(api, load)
+            ret_dict = self.low(api, load)
             exit_code = 0
-            yield exit_code, json.dumps(ret, sort_keys=True, indent=4)
+            yield exit_code, json.dumps(ret_dict, sort_keys=True, indent=4)

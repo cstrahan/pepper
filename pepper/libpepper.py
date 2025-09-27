@@ -31,14 +31,14 @@ try:
     import urllib.parse as urlparse
 except ImportError:
     from urllib2 import (  # type: ignore
-        HTTPHandler,  # type: ignore
-        HTTPSHandler,  # type: ignore
-        Request,  # type: ignore
-        urlopen,  # type: ignore
-        install_opener,  # type: ignore
-        build_opener,  # type: ignore
-        HTTPError,  # type: ignore
-        URLError,  # type: ignore
+        HTTPHandler,
+        HTTPSHandler,
+        Request,
+        urlopen,
+        install_opener,
+        build_opener,
+        HTTPError,
+        URLError,
     )
     import urlparse  # type: ignore
 
@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 JSONType = Union[None, bool, int, float, str, List["JSONType"], Dict[str, "JSONType"]]
 
 if TYPE_CHECKING:
-    from requests import Response
+    import requests
 
 
 class Pepper:
@@ -111,7 +111,7 @@ class Pepper:
         self.auth: Dict[str, JSONType] = {}
         self.salt_version: Optional[Tuple[str, ...]] = None
 
-    def req_stream(self, path: str) -> Optional["Response"]:
+    def req_stream(self, path: str) -> Optional["requests.Response"]:
         """
         A thin wrapper to get a response from saltstack api.
         The body of the response will not be downloaded immediately.

@@ -11,9 +11,6 @@ import re
 import ssl
 from typing import Optional, Dict, List, Any, Union, Tuple, TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from requests import Response
-
 from pepper.exceptions import PepperException
 
 try:
@@ -49,6 +46,9 @@ logger = logging.getLogger(__name__)
 
 # Type alias for JSON-serializable data
 JSONType = Union[None, bool, int, float, str, List["JSONType"], Dict[str, "JSONType"]]
+
+if TYPE_CHECKING:
+    from requests import Response
 
 
 class Pepper:
@@ -137,14 +137,13 @@ class Pepper:
             headers.setdefault("X-Auth-Token", str(self.auth["token"]))
         else:
             raise PepperException("Authentication required")
-        params = {
-            "url": self._construct_url(path),
-            "headers": headers,
-            "verify": self._ssl_verify is True,
-            "stream": True,
-        }
         try:
-            resp = requests.get(**params)  # type: ignore
+            resp = requests.get(
+                url=self._construct_url(path),
+                headers=headers,
+                verify=self._ssl_verify is True,
+                stream=True,
+            )
 
             if resp.status_code == 401:
                 raise PepperException(str(resp.status_code) + ":Authentication denied")

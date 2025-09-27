@@ -77,9 +77,11 @@ def session_ssh_roster_config(session_sshd_server, session_master):
       mine_functions:
         test.arg: ['itworked']
     """.format(
-        session_sshd_server.listen_port, running_username(), session_sshd_server.client_key
+        session_sshd_server.listen_port,
+        running_username(),
+        session_sshd_server.client_key,
     )
-    with pytest.helpers.temp_file(
+    with pytest.helpers.temp_file(  # type: ignore[attr-defined]
         "roster", roster_contents, session_master.config_dir
     ) as roster_file:
         yield roster_file
@@ -120,9 +122,7 @@ def pepperconfig(salt_api_port):
         SALTAPI_EAUTH=sharedsecret
         [noopts]
         SALTAPI_URL=http://localhost:{0}/
-    """.format(
-            salt_api_port
-        )
+    """.format(salt_api_port)
     )
     with open("tests/.pepperrc", "w") as pepper_file:
         print(config, file=pepper_file)
@@ -155,11 +155,16 @@ def output_file():
 
 
 @pytest.fixture(params=["/run", "/login"])
-def pepper_cli(request, session_salt_api, salt_api_port, output_file, session_sshd_server):
+def pepper_cli(
+    request, session_salt_api, salt_api_port, output_file, session_sshd_server
+):
     """
     Wrapper to invoke Pepper with common params and inside an empty env
     """
-    if request.config.getoption("--salt-api-backend") == "rest_tornado" and request.param == "/run":
+    if (
+        request.config.getoption("--salt-api-backend") == "rest_tornado"
+        and request.param == "/run"
+    ):
         pytest.xfail("rest_tornado does not support /run endpoint until next release")
 
     def_args = [
@@ -173,7 +178,9 @@ def pepper_cli(request, session_salt_api, salt_api_port, output_file, session_ss
         def_args = ["--run-uri"] + def_args
 
     def _run_pepper_cli(*args, **kwargs):
-        sys.argv = ["pepper", "-p", kwargs.pop("profile", "main")] + def_args + list(args)
+        sys.argv = (
+            ["pepper", "-p", kwargs.pop("profile", "main")] + def_args + list(args)
+        )
         exitcode = pepper.script.Pepper()()
         try:
             with open(output_file) as result:
@@ -241,10 +248,10 @@ def session_master_config_overrides(request, salt_api_port, salt_api_backend):
     }
 
 
-@pytest.helpers.register
-def remove_stale_minion_key(master, minion_id):
+@pytest.helpers.register  # type: ignore[attr-defined]
+def remove_stale_minion_key(master: object, minion_id: str) -> None:
     """Helper to remove a stale minion key."""
-    key_path = os.path.join(master.config["pki_dir"], "minions", minion_id)
+    key_path = os.path.join(master.config["pki_dir"], "minions", minion_id)  # type: ignore[attr-defined]
     if os.path.exists(key_path):
         os.unlink(key_path)
     else:
@@ -256,7 +263,9 @@ def session_minion_factory(session_master_factory):
     """Return a factory for a randomly named minion connected to master."""
     minion_factory = session_master_factory.salt_minion_daemon(random_string("minion-"))
     minion_factory.after_terminate(
-        pytest.helpers.remove_stale_minion_key, session_master_factory, minion_factory.id
+        pytest.helpers.remove_stale_minion_key,  # type: ignore[attr-defined]
+        session_master_factory,
+        minion_factory.id,
     )
     return minion_factory
 

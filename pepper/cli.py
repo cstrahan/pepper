@@ -440,16 +440,6 @@ class PepperCli:
         )
 
         optgroup.add_option(
-            "--token",
-            dest="token",
-            help=textwrap.dedent(
-                """
-                Token to use.
-            """
-            ),
-        )
-
-        optgroup.add_option(
             "-r",
             "--run-uri",
             default=False,
@@ -460,6 +450,17 @@ class PepperCli:
                 Use an eauth token from /token and send commands through the
                 /run URL instead of the traditional session token
                 approach.
+            """
+            ),
+        )
+
+        optgroup.add_option(
+            "--run-uri-token",
+            dest="run_uri_token",
+            help=textwrap.dedent(
+                """
+                The authentication token to use with --run-uri.
+                Overrides the token from the cache file.
             """
             ),
         )
@@ -551,6 +552,14 @@ class PepperCli:
         # get environment values
         for key, value in list(results.items()):
             results[key] = os.environ.get(key, results[key])
+
+        # if we're bypassing session handling, and we have a token,
+        # exit early.
+        results["SALTAPI_RUN_URI_TOKEN"] = os.environ.get("SALTAPI_RUN_URI_TOKEN", None)
+        if self.options.run_uri_token:
+            results["SALTAPI_RUN_URI_TOKEN"] = self.options.run_uri_token
+        if self.options.userun and results.get("SALTAPI_RUN_URI_TOKEN", None):
+            return results
 
         if results["SALTAPI_EAUTH"] == "kerberos":
             results["SALTAPI_PASS"] = None
@@ -772,7 +781,11 @@ class PepperCli:
     def login(self, api):
         login = api.token if self.options.userun else api.login
 
-        if self.options.mktoken:
+        login_details = self.get_login_details()
+        token = login_details["SALTAPI_RUN_URI_TOKEN"]
+        if self.options.userun and token:
+            auth = {"token": token}
+        elif self.options.mktoken:
             token_file = self.options.cache
             try:
                 with open(token_file) as f:
@@ -832,10 +845,19 @@ class PepperCli:
         rootLogger = logging.getLogger(name=None)
         rootLogger.addHandler(logging.StreamHandler())
         rootLogger.setLevel(max(logging.ERROR - (self.options.verbose * 10), 1))
+        if self.options.debug_http:
+            # import logging
+            import http.client as http_client
+
+            http_client.HTTPConnection.debuglevel = 1
+            logging.basicConfig()
+            logging.getLogger().setLevel(logging.DEBUG)
+            requests_log = logging.getLogger("requests.packages.urllib3")
+            requests_log.setLevel(logging.DEBUG)
+            requests_log.propagate = True
 
         api = pepper.Pepper(
             self.parse_url(),
-            debug_http=self.options.debug_http,
             ignore_ssl_errors=self.options.ignore_ssl_certificate_errors,
         )
 

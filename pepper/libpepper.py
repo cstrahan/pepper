@@ -53,7 +53,6 @@ class Pepper:
     def __init__(
         self,
         api_url="https://localhost:8000",
-        debug_http=False,
         ignore_ssl_errors=False,
     ):
         """
@@ -61,8 +60,6 @@ class Pepper:
 
         :param api_url: Host or IP address of the salt-api URL;
             include the port number
-
-        :param debug_http: Add a flag to urllib2 to output the HTTP exchange
 
         :param ignore_ssl_errors: Add a flag to urllib2 to ignore invalid SSL certificates
 
@@ -76,7 +73,6 @@ class Pepper:
             )
 
         self.api_url = api_url
-        self.debug_http = int(debug_http)
         self._ssl_verify = not ignore_ssl_errors
         self.auth = {}
         self.salt_version = None
@@ -228,27 +224,12 @@ class Pepper:
         # if proxies:
         #     params["proxies"] = proxies
 
-        # Configure debugging
-        if self.debug_http:
-            import logging
-            import http.client as http_client
-
-            http_client.HTTPConnection.debuglevel = 1
-            logging.basicConfig()
-            logging.getLogger().setLevel(logging.DEBUG)
-            requests_log = logging.getLogger("requests.packages.urllib3")
-            requests_log.setLevel(logging.DEBUG)
-            requests_log.propagate = True
-
         try:
             if data is not None:
                 params["data"] = json.dumps(data)
                 resp = requests.post(**params)
             else:
                 resp = requests.get(**params)
-
-            if self.debug_http:
-                logger.debug("Response: %s", resp.text)
 
             # Check for salt version header
             if not self.salt_version and "x-salt-version" in resp.headers:

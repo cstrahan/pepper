@@ -534,6 +534,7 @@ class PepperCli:
             "SALTAPI_USER": None,
             "SALTAPI_PASS": None,
             "SALTAPI_EAUTH": "auto",
+            "SALTAPI_RUN_URI_TOKEN": None,
         }
 
         try:
@@ -553,13 +554,8 @@ class PepperCli:
         for key, value in list(results.items()):
             results[key] = os.environ.get(key, results[key])
 
-        # if we're bypassing session handling, and we have a token,
-        # exit early.
-        results["SALTAPI_RUN_URI_TOKEN"] = os.environ.get("SALTAPI_RUN_URI_TOKEN", None)
         if self.options.run_uri_token:
             results["SALTAPI_RUN_URI_TOKEN"] = self.options.run_uri_token
-        if self.options.userun and results.get("SALTAPI_RUN_URI_TOKEN", None):
-            return results
 
         if results["SALTAPI_EAUTH"] == "kerberos":
             results["SALTAPI_PASS"] = None
@@ -568,6 +564,12 @@ class PepperCli:
             results["SALTAPI_EAUTH"] = self.options.eauth
         if self.options.token_expire:
             results["SALTAPI_TOKEN_EXPIRE"] = self.options.token_expire
+
+        # if we're bypassing session handling, and we have a token,
+        # then exit early, as this token is all we need.
+        if self.options.userun and results["SALTAPI_RUN_URI_TOKEN"]:
+            return results
+
         if self.options.username is None and results["SALTAPI_USER"] is None:
             if self.options.interactive:
                 results["SALTAPI_USER"] = input("Username: ")

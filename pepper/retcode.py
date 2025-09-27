@@ -2,8 +2,11 @@
 A retcode validator
 
 """
-from typing import Any, Dict, List, Union
+
+from typing import List
 import optparse
+
+from pepper.libpepper import JSONType
 
 
 class PepperRetcode:
@@ -11,7 +14,7 @@ class PepperRetcode:
     Validation container
     """
 
-    def validate(self, options: optparse.Values, result: Union[List[Any], Dict[str, Any], str]) -> int:
+    def validate(self, options: optparse.Values, result: JSONType) -> int:
         """
         Validate result dictionary retcode values.
 
@@ -32,7 +35,7 @@ class PepperRetcode:
         return 0
 
     @staticmethod
-    def validate_fail_any(result: Union[List[Any], Dict[str, Any], str]) -> int:
+    def validate_fail_any(result: JSONType) -> int:
         """
         Validate result dictionary retcode values.
         Returns 0 if no retcode keys.
@@ -45,16 +48,17 @@ class PepperRetcode:
         if isinstance(result, list):
             if isinstance(result[0], dict):
                 minion = result[0]
-                retcodes = list(
-                    minion[name].get("retcode")
+                retcodes: List[int] = list(
+                    minion[name].get("retcode")  # type: ignore
                     for name in minion
-                    if isinstance(minion[name], dict) and minion[name].get("retcode") is not None
+                    if isinstance(minion[name], dict)
+                    and minion[name].get("retcode") is not None  # type: ignore
                 )
                 return next((r for r in retcodes if r != 0), 0)
         return 0
 
     @staticmethod
-    def validate_fail_any_none(result: Union[List[Any], Dict[str, Any], str]) -> int:
+    def validate_fail_any_none(result: JSONType) -> int:
         """
         Validate result dictionary retcode values.
         Returns -1 if no retcode keys.
@@ -67,10 +71,11 @@ class PepperRetcode:
         if isinstance(result, list):
             if isinstance(result[0], dict):
                 minion = result[0]
-                retcodes = list(
-                    minion[name].get("retcode")
+                retcodes: List[int] = list(
+                    minion[name].get("retcode")  # type: ignore
                     for name in minion
-                    if isinstance(minion[name], dict) and minion[name].get("retcode") is not None
+                    if isinstance(minion[name], dict)
+                    and minion[name].get("retcode") is not None  # type: ignore
                 )
                 if not retcodes:
                     return -1  # there are no retcodes
@@ -78,7 +83,7 @@ class PepperRetcode:
         return -1
 
     @staticmethod
-    def validate_fail_all(result: Union[List[Any], Dict[str, Any], str]) -> int:
+    def validate_fail_all(result: JSONType) -> int:
         """
         Validate result dictionary retcode values.
         Returns 0 if no retcode keys.
@@ -91,17 +96,18 @@ class PepperRetcode:
         if isinstance(result, list):
             if isinstance(result[0], dict):
                 minion = result[0]
-                retcodes = list(
-                    minion[name].get("retcode")
+                retcodes: List[int] = list(
+                    minion[name].get("retcode")  # type: ignore
                     for name in minion
-                    if isinstance(minion[name], dict) and minion[name].get("retcode") is not None
+                    if isinstance(minion[name], dict)
+                    and minion[name].get("retcode") is not None  # type: ignore
                 )
                 if all(r != 0 for r in retcodes):
                     return next((r for r in retcodes if r != 0), 0)
         return 0
 
     @staticmethod
-    def validate_fail_all_none(result: Union[List[Any], Dict[str, Any], str]) -> int:
+    def validate_fail_all_none(result: JSONType) -> int:
         """
         Validate result dictionary retcode values.
         Returns -1 if no retcode keys.
@@ -114,10 +120,11 @@ class PepperRetcode:
         if isinstance(result, list):
             if isinstance(result[0], dict):
                 minion = result[0]
-                retcodes = list(
-                    minion[name].get("retcode")
+                retcodes: List[int] = list(
+                    minion[name].get("retcode")  # type: ignore
                     for name in minion
-                    if isinstance(minion[name], dict) and minion[name].get("retcode") is not None
+                    if isinstance(minion[name], dict)
+                    and minion[name].get("retcode") is not None  # type: ignore
                 )
                 if not retcodes:
                     return -1  # there are no retcodes

@@ -2,6 +2,7 @@
 """
 A CLI interface to a remote salt-api instance
 """
+
 import json
 import logging
 import sys
@@ -14,9 +15,9 @@ from pepper.exceptions import PepperException
 from pepper.retcode import PepperRetcode
 
 try:
-    import salt.loader
-    import salt.config
-    import salt.output
+    import salt.loader  # type: ignore
+    import salt.config  # type: ignore
+    import salt.output  # type: ignore
 
     HAS_SALT = True
 except ImportError:
@@ -62,7 +63,10 @@ class Pepper:
                                 for minionid, minionret in ret.items():
                                     # rest_tornado doesnt return full_return directly
                                     # it will always be from get_event, so the output differs slightly
-                                    if isinstance(minionret, dict) and "return" in minionret:
+                                    if (
+                                        isinstance(minionret, dict)
+                                        and "return" in minionret
+                                    ):
                                         # version >= 2017.7
                                         salt.output.display_output(
                                             {minionid: minionret["return"]},
@@ -72,7 +76,10 @@ class Pepper:
                                             opts=self.opts,
                                         )
                                     # cherrypy returns with ret via full_return
-                                    elif isinstance(minionret, dict) and "ret" in minionret:
+                                    elif (
+                                        isinstance(minionret, dict)
+                                        and "ret" in minionret
+                                    ):
                                         # version >= 2017.7
                                         salt.output.display_output(
                                             {minionid: minionret["ret"]},
@@ -90,15 +97,21 @@ class Pepper:
                             elif "data" in ret:
                                 # unfold runners
                                 outputter = ret.get("outputter", "nested")
-                                if isinstance(ret["data"], dict) and "return" in ret["data"]:
+                                if (
+                                    isinstance(ret["data"], dict)
+                                    and "return" in ret["data"]
+                                ):
                                     ret = ret["data"]["return"]
                                 salt.output.display_output(
-                                    ret, self.cli.options.output or outputter, opts=self.opts
+                                    ret,
+                                    self.cli.options.output or outputter,
+                                    opts=self.opts,
                                 )
                             else:
                                 salt.output.display_output(
                                     {self.cli.options.client: ret},
-                                    self.cli.options.output or ret.get("outputter", "nested"),
+                                    self.cli.options.output
+                                    or ret.get("outputter", "nested"),
                                     opts=self.opts,
                                 )
                         else:

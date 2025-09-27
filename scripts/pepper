@@ -7,16 +7,19 @@ import logging
 import pepper.script
 
 try:
-    from logging import NullHandler
+    from logging import NullHandler  # type: ignore
 except ImportError:  # Python < 2.7
-    class NullHandler(logging.Handler):
-        def emit(self, record): pass
 
-logging.basicConfig(format='%(levelname)s %(asctime)s %(module)s: %(message)s')
-logger = logging.getLogger('pepper')
+    class NullHandler(logging.Handler):
+        def emit(self, record):
+            pass
+
+
+logging.basicConfig(format="%(levelname)s %(asctime)s %(module)s: %(message)s")
+logger = logging.getLogger("pepper")
 logger.addHandler(NullHandler())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     exit_code = pepper.script.Pepper()()
     raise SystemExit(exit_code if exit_code is not None else 0)

@@ -3,14 +3,15 @@
 A CLI front-end to a running salt-api system
 
 """
-import setuptools
+
+import setuptools  # type: ignore
 
 with open("README.rst") as fh:
     long_description = fh.read()
 
 setup_kwargs = {
     "name": "salt-pepper",
-    "description": __doc__.strip(),
+    "description": __doc__.strip(),  # type: ignore
     "author": "Seth House",
     "author_email": "shouse@saltstack.com",
     "url": "http://saltstack.com",

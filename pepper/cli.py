@@ -2,6 +2,7 @@
 A CLI interface to a remote salt-api instance
 
 """
+
 import getpass
 import json
 import logging
@@ -10,12 +11,13 @@ import os
 import sys
 import textwrap
 import time
-from typing import Any, Dict, List, Optional, Tuple, Generator, Union
+from typing import Dict, List, Optional, Tuple, Generator, Union
 
 import pepper
 from pepper.exceptions import PepperArgumentsException
 from pepper.exceptions import PepperAuthException
 from pepper.exceptions import PepperException
+from pepper.libpepper import JSONType
 
 # Import Pepper Libraries
 
@@ -29,7 +31,7 @@ except ImportError:
 
 try:
     # Python 3
-    JSONDecodeError = json.JSONDecodeError  # type: ignore
+    JSONDecodeError = json.JSONDecodeError
 except AttributeError:
     # Python 2
     JSONDecodeError = ValueError  # type: ignore[assignment, misc]
@@ -71,7 +73,9 @@ class PepperCli:
         self.parser.add_option(
             "-c",
             dest="config",
-            default=os.environ.get("PEPPERRC", os.path.join(os.path.expanduser("~"), ".pepperrc")),
+            default=os.environ.get(
+                "PEPPERRC", os.path.join(os.path.expanduser("~"), ".pepperrc")
+            ),
             help=textwrap.dedent(
                 """
                 Configuration file location. Default is a file path in the
@@ -473,7 +477,9 @@ class PepperCli:
         ret code validation options
         """
         optgroup = optparse.OptionGroup(
-            self.parser, "retcode Field Validation Options", "Validate return.HOST.retcode fields"
+            self.parser,
+            "retcode Field Validation Options",
+            "Validate return.HOST.retcode fields",
         )
 
         optgroup.add_option(
@@ -522,7 +528,9 @@ class PepperCli:
         }
 
         try:
-            config: Union[ConfigParser, RawConfigParser] = ConfigParser(interpolation=None)  # type: ignore
+            config: Union[ConfigParser, RawConfigParser] = ConfigParser(
+                interpolation=None
+            )  # type: ignore
         except TypeError:
             config = RawConfigParser()
         config.read(self.options.config)
@@ -575,7 +583,9 @@ class PepperCli:
         url = "https://localhost:8000/"
 
         try:
-            config: Union[ConfigParser, RawConfigParser] = ConfigParser(interpolation=None)  # type: ignore
+            config: Union[ConfigParser, RawConfigParser] = ConfigParser(
+                interpolation=None
+            )  # type: ignore
         except TypeError:
             config = RawConfigParser()
         config.read(self.options.config)
@@ -595,7 +605,7 @@ class PepperCli:
 
         return url
 
-    def parse_login(self) -> Dict[str, Any]:
+    def parse_login(self) -> Dict[str, Union[str, int, None]]:
         """
         Extract the authentication credentials
         """
@@ -606,15 +616,17 @@ class PepperCli:
         password = login_details["SALTAPI_PASS"]
         eauth = login_details["SALTAPI_EAUTH"]
 
-        ret = dict(username=username, password=password, eauth=eauth)
+        ret: Dict[str, Union[str, int, None]] = dict(
+            username=username, password=password, eauth=eauth
+        )
 
         token_expire = login_details.get("SALTAPI_TOKEN_EXPIRE", None)
         if token_expire:
-            ret["token_expire"] = int(token_expire)  # type: ignore
+            ret["token_expire"] = int(token_expire)
 
         return ret
 
-    def parse_cmd(self, api: 'pepper.Pepper') -> List[Dict[str, Any]]:
+    def parse_cmd(self, api: "pepper.Pepper") -> List[Dict[str, JSONType]]:
         """
         Extract the low data for a command from the passed CLI params
         """
@@ -633,7 +645,9 @@ class PepperCli:
                     except JSONDecodeError:
                         raise PepperArgumentsException("Invalid JSON given.")
             except FileNotFoundError:
-                raise PepperArgumentsException("Cannot open file: %s", self.options.json_file)
+                raise PepperArgumentsException(
+                    "Cannot open file: %s", self.options.json_file
+                )
 
         args = list(self.args)
 
@@ -696,15 +710,17 @@ class PepperCli:
 
         return [low]
 
-    def poll_for_returns(self, api: 'pepper.Pepper', load: List[Dict[str, Any]]) -> Generator[Tuple[Optional[int], List[Dict[str, Any]]], None, None]:
+    def poll_for_returns(
+        self, api: "pepper.Pepper", load: List[Dict[str, JSONType]]
+    ) -> Generator[Tuple[Optional[int], List[Dict[str, JSONType]]], None, None]:
         """
         Run a command with the local_async client and periodically poll the job
         cache for returns for the job.
         """
         load[0]["client"] = "local_async"
         async_ret = self.low(api, load)
-        jid = async_ret["return"][0]["jid"]
-        nodes = async_ret["return"][0]["minions"]
+        jid: str = async_ret["return"][0]["jid"]  # type: ignore
+        nodes: List[str] = async_ret["return"][0]["minions"]  # type: ignore
         ret_nodes: List[str] = []
         exit_code = 1
 
@@ -731,10 +747,10 @@ class PepperCli:
                 ],
             )
 
-            inner_ret = jid_ret["return"][0]
+            inner_ret: Dict[str, JSONType] = jid_ret["return"][0]  # type: ignore
             # sometimes ret is nested in data
             if "data" in inner_ret:
-                inner_ret = inner_ret["data"]
+                inner_ret = inner_ret["data"]  # type: ignore
 
             responded = set(inner_ret.keys()) ^ set(ret_nodes)
 
@@ -749,11 +765,11 @@ class PepperCli:
                 time.sleep(self.seconds_to_wait)
 
         exit_code = exit_code if self.options.fail_if_minions_dont_respond else 0
-        failed = list(set(ret_nodes) ^ set(nodes))
+        failed: List[JSONType] = list(set(ret_nodes) ^ set(nodes))
         if failed:
             yield exit_code, [{"Failed": failed}]
 
-    def login(self, api: 'pepper.Pepper') -> Dict[str, Any]:
+    def login(self, api: "pepper.Pepper") -> Dict[str, JSONType]:
         login = api.token if self.options.userun else api.login
 
         if self.options.mktoken:
@@ -766,27 +782,35 @@ class PepperCli:
                     raise Exception("Login token expired")
             except Exception as e:
                 if e.args[0] != 2:
-                    logger.error("Unable to load login token from {} {}".format(token_file, str(e)))
+                    logger.error(
+                        "Unable to load login token from {} {}".format(
+                            token_file, str(e)
+                        )
+                    )
                     if os.path.isfile(token_file):
                         os.remove(token_file)
-                auth = login(**self.parse_login())
+                auth = login(**self.parse_login())  # type: ignore[arg-type]
                 try:
                     oldumask = os.umask(0)
                     fdsc = os.open(token_file, os.O_WRONLY | os.O_CREAT, 0o600)
                     with os.fdopen(fdsc, "wt") as f:
                         json.dump(auth, f)
                 except Exception as e:
-                    logger.error("Unable to save token to {} {}".format(token_file, str(e)))
+                    logger.error(
+                        "Unable to save token to {} {}".format(token_file, str(e))
+                    )
                 finally:
                     os.umask(oldumask)
         else:
-            auth = login(**self.parse_login())
+            auth = login(**self.parse_login())  # type: ignore[arg-type]
 
         api.auth = auth
         self.auth = auth
         return auth
 
-    def low(self, api: 'pepper.Pepper', load: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def low(
+        self, api: "pepper.Pepper", load: List[Dict[str, JSONType]]
+    ) -> Dict[str, JSONType]:
         path = "/run" if self.options.userun else "/"
 
         if self.options.userun:
@@ -797,10 +821,11 @@ class PepperCli:
         # are available if backend is tornado, so safe to supply timeout
         if self.options.timeout and api.salt_version:
             for i in load:
-                if not i.get("client", "").startswith("wheel"):
+                client = i.get("client", "")
+                if isinstance(client, str) and not client.startswith("wheel"):
                     i["timeout"] = self.options.timeout
 
-        return api.low(load, path=path)
+        return api.low(load, path=path)  # type: ignore[arg-type]
 
     def run(self) -> Generator[Tuple[Optional[int], str], None, None]:
         """
@@ -822,7 +847,8 @@ class PepperCli:
         load = self.parse_cmd(api)
 
         for entry in load:
-            if not entry.get("client", "").startswith("wheel"):
+            client = entry.get("client", "")
+            if isinstance(client, str) and not client.startswith("wheel"):
                 entry["full_return"] = True
 
         if self.options.fail_if_minions_dont_respond:
